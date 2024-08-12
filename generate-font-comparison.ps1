@@ -41,18 +41,18 @@ $htmlContent = @"
 }
 @keyframes moveUpDown {
     0% { top: 0; }
-    50% { top: 15px; }
+    50% { top: 5px; }
     100% { top: 0; }
 }
 .overlay .text-sample {
     position: absolute;
     width: 100%;
     color: rgba(0, 0, 0, 0.5);
-    animation: moveUpDown 8s linear infinite;
+    animation: moveUpDown 2s linear infinite;
 }
 .overlay .text-sample:nth-child(2) {
     color: rgba(255, 0, 0, 0.5);
-    animation-delay: 4s;
+    animation-delay: 1s;
 }
 </style>
 </head>
@@ -184,8 +184,14 @@ window.onload = initializeFontDimensions;
 "@
 
 # Step 3: Save the HTML content to a file
-$outputFilePath = "font-comparison.html"
+$outputFilePath = Join-Path -Path "$env:USERPROFILE\Documents" -ChildPath "font-comparison.html"
 $htmlContent | Out-File -FilePath $outputFilePath -Encoding utf8
 
 # Step 4: Open the HTML file in the default web browser
-Start-Process $outputFilePath
+# Check if Chrome is installed and open the HTML file with it
+if (Test-Path -Path "C:\Program Files\Google\Chrome\Application\chrome.exe") {
+    Start-Process -FilePath "C:\Program Files\Google\Chrome\Application\chrome.exe" -ArgumentList "$outputFilePath"
+} else {
+    # If Chrome is not installed, open the file with the default browser
+    Start-Process $outputFilePath
+}
