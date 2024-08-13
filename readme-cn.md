@@ -18,3 +18,7 @@
 ## 提高效果的小贴士
 
 为了获得最佳效果，请在安装了大量免费字体的Windows系统上运行此工具。这样可以在HTML页面的下拉列表中看到更多的字体供您选择。
+
+---
+
+**注意：** 此工具的代码由 [Copilot](https://github.com/features/copilot) 和 [Tongyi Lingma](https://tongyi.aliyun.com/) 生成。
