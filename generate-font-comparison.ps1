@@ -14,14 +14,18 @@ $htmlContent = @"
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Font Comparison Tool</title>
 <style>
+.link-margin {
+    margin-right: 10px;
+}
+.highlight {
+    background-color: yellow;
+    font-weight: bold;
+}
 .comparison-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    margin-top: 20px;
 }
 .text-sample {
-    padding: 20px;
     border: 1px solid #ccc;
     text-align: center;
     font-size: 24px;
@@ -37,7 +41,6 @@ $htmlContent = @"
 }
 .overlay {
     position: relative;
-    height: 100px;
 }
 @keyframes moveUpDown {
     0% { top: 0; }
@@ -47,11 +50,11 @@ $htmlContent = @"
 .overlay .text-sample {
     position: absolute;
     width: 100%;
-    color: rgba(0, 0, 0, 0.5);
+    color: rgba(0, 0, 0, 0.8); /* Bright black */
     animation: moveUpDown 2s linear infinite;
 }
 .overlay .text-sample:nth-child(2) {
-    color: rgba(255, 0, 0, 0.5);
+    color: rgba(255, 255, 0, 0.8); /* Bright yellow */
     animation-delay: 1s;
 }
 </style>
@@ -82,7 +85,8 @@ foreach ($font in $fonts)
 $htmlContent += @"
 </select>
 </div>
-<div id="suggestion-message" style="margin-top: 20px;"></div>
+<div id="suggestion-message1" style="margin-top: 20px;"></div>
+<div id="suggestion-message2" style="margin-top: 20px;"></div>
 <div class="comparison-container">
 <div class="side-by-side">
 <div id="sample1" class="text-sample">The quick brown fox jumps over the lazy dog</div>
@@ -107,7 +111,6 @@ const sample3 = document.getElementById('sample3');
 const sample4 = document.getElementById('sample4');
 const sample5 = document.getElementById('sample5');
 const sample6 = document.getElementById('sample6');
-const suggestionMessage = document.getElementById('suggestion-message');
 
 const sampleText = "The quick brown fox jumps over the lazy dog";
 const fontDimensions = {};
@@ -117,21 +120,42 @@ const context = canvas.getContext('2d');
 
 function calculateFontDimensions(fontName) {
     console.time("calculateFontDimensions " + fontName);
+
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    canvas.width = canvas.width * devicePixelRatio;
+    canvas.height = canvas.height * devicePixelRatio;
+    context.scale(devicePixelRatio, devicePixelRatio);
+
     context.font = "24px " + fontName;
     const metrics = context.measureText(sampleText);
     const dimensions = {
-        Width: Math.round(metrics.width),
-        Height: Math.round(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent)
+        Width: metrics.width / devicePixelRatio,
+        Height: (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) / devicePixelRatio
     };
     console.timeEnd("calculateFontDimensions " + fontName);
+
+    let storedFontDimensions = JSON.parse(localStorage.getItem('fontDimensions')) || {};
+    storedFontDimensions[fontName] = dimensions;
+    localStorage.setItem('fontDimensions', JSON.stringify(storedFontDimensions));
+
     return dimensions;
+}
+
+function loadFontDimensionsFromLocalStorage() {
+    return JSON.parse(localStorage.getItem('fontDimensions')) || {};
 }
 
 function initializeFontDimensions() {
     console.time('initializeFontDimensions');
     const fontOptions = new Set([...font1Dropdown.options, ...font2Dropdown.options].map(option => option.value));
+    const storedFontDimensions = loadFontDimensionsFromLocalStorage();
+
     fontOptions.forEach(fontName => {
-        fontDimensions[fontName] = calculateFontDimensions(fontName);
+        if (storedFontDimensions[fontName]) {
+            fontDimensions[fontName] = storedFontDimensions[fontName];
+        } else {
+            fontDimensions[fontName] = calculateFontDimensions(fontName);
+        }
     });
     console.timeEnd('initializeFontDimensions');
 }
@@ -147,34 +171,64 @@ function findClosestFonts(selectedFont) {
     }
 
     fontDifferences.sort((a, b) => a.difference - b.difference);
-    return fontDifferences.slice(0, 5);
+    return fontDifferences.slice(0, 10); // Return the top 10 closest fonts
 }
 
-function updateSuggestionMessage(fontDropdown, sampleElements) {
-    const selectedFont = fontDropdown.value;
-    const dimensions = fontDimensions[selectedFont];
-    const closestFonts = findClosestFonts(selectedFont);
+function updateSuggestionMessage(fontDropdown, sampleElements, suggestionElement, otherDropdown) {
+    var selectedFont = fontDropdown.value;
+    var dimensions = fontDimensions[selectedFont];
+    var closestFonts = findClosestFonts(selectedFont);
 
-    let suggestionHTML = "You just selected font " + selectedFont + ", its width is " + dimensions.Width + " and height is " + dimensions.Height + ".<br>";
-    suggestionHTML += "Top 5 closest replacement fonts are:<br>";
+    var suggestionHTML = "You have selected the font <span class='highlight'>" + selectedFont + "</span> with a width of " + dimensions.Width + " and a height of " + dimensions.Height + ".";
+    suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + selectedFont + "', 'copyright')\">Check Copyright</a>";
+    suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + selectedFont + "', 'alternative')\">Check Free Alternative</a><br>";
+    suggestionHTML += "The top 10 closest replacement fonts are:<br>";
 
     closestFonts.forEach(function(fontInfo, index) {
-        suggestionHTML += (index + 1) + ". " + fontInfo.font + " - Width: " + fontInfo.dimensions.Width + ", Height: " + fontInfo.dimensions.Height + "<br>";
+        var fontName = fontInfo.font;
+        suggestionHTML += (index + 1) + ". <span class='highlight'>" + fontName + "</span> - Width: " + fontInfo.dimensions.Width + ", Height: " + fontInfo.dimensions.Height;
+        suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + fontName + "', 'copyright')\">Check Copyright</a>";
+        suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + fontName + "', 'alternative')\">Check Free Alternative</a>";
+        suggestionHTML += " <button onclick=\"tryFont('" + fontName + "', '" + otherDropdown.id + "')\">Try it</button><br>";
     });
 
-    suggestionMessage.innerHTML = suggestionHTML;
+    suggestionElement.innerHTML = suggestionHTML;
 
-    sampleElements.forEach(sample => {
+    sampleElements.forEach(function(sample) {
         sample.style.fontFamily = selectedFont;
     });
 }
 
+function tryFont(fontName, otherDropdownId) {
+    var otherDropdown = document.getElementById(otherDropdownId);
+    otherDropdown.value = fontName;
+    var event = new Event('change');
+    otherDropdown.dispatchEvent(event);
+}
+
+function openGoogleSearchTabs(fontName, type) {
+    var searchQueries = {
+        copyright: [
+            fontName + " font copyright",
+            fontName + " \u5B57\u4F53 \u7248\u6743"
+        ],
+        alternative: [
+            "free alternative to " + fontName + " font",
+            fontName + " \u5B57\u4F53 \u514D\u8D39 \u66FF\u4EE3"
+        ]
+    };
+
+    searchQueries[type].forEach(function(query) {
+        window.open("https://www.google.com/search?q=" + encodeURIComponent(query), '_blank');
+    });
+}
+
 font1Dropdown.addEventListener('change', () => {
-    updateSuggestionMessage(font1Dropdown, [sample1, sample3, sample5]);
+    updateSuggestionMessage(font1Dropdown, [sample1, sample3, sample5], document.getElementById('suggestion-message1'), font2Dropdown);
 });
 
 font2Dropdown.addEventListener('change', () => {
-    updateSuggestionMessage(font2Dropdown, [sample2, sample4, sample6]);
+    updateSuggestionMessage(font2Dropdown, [sample2, sample4, sample6], document.getElementById('suggestion-message2'), font1Dropdown);
 });
 
 window.onload = initializeFontDimensions;
@@ -193,5 +247,5 @@ if (Test-Path -Path "C:\Program Files\Google\Chrome\Application\chrome.exe") {
     Start-Process -FilePath "C:\Program Files\Google\Chrome\Application\chrome.exe" -ArgumentList "$outputFilePath"
 } else {
     # If Chrome is not installed, open the file with the default browser
-    Start-Process $outputFilePath
+Start-Process $outputFilePath
 }
