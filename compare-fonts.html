@@ -72,17 +72,23 @@
 </head>
 
 <body>
-    <h1>字体比较工具</h1>
+    <h1>Compare Fonts</h1>
     <button id="load" onclick="loadFonts()">Load fonts(will take some time)</button>
     <span>Loading fonts will be slow, because we have to calculate font metrics</span>
 
     <div>
-        <label for="font1">选择字体 1:</label>
+        <label for="font1">Non-free fonts:</label>
         <select id="font1" class="font-dropdown">
             <!-- 字体将在这里动态添加 -->
         </select>
-        <label for="font2">选择字体 2:</label>
+
+        <label for="font2">Open free fonts:</label>
         <select id="font2" class="font-dropdown">
+            <!-- 字体将在这里动态添加 -->
+        </select>
+
+        <label for="font3">Others:</label>
+        <select id="font3" class="font-dropdown">
             <!-- 字体将在这里动态添加 -->
         </select>
     </div>
@@ -90,16 +96,22 @@
     <div id="suggestion-message2" style="margin-top: 20px;"></div>
     <div class="comparison-container">
         <div class="side-by-side">
-            <div id="sample1" class="text-sample">The quick brown fox jumps over the lazy dog</div>
-            <div id="sample2" class="text-sample">The quick brown fox jumps over the lazy dog</div>
+            <div id="sample1" class="text-sample">The quick brown fox jumps over the lazy dog 0123456789 !@#$%^&*()_+
+            </div>
+            <div id="sample2" class="text-sample">The quick brown fox jumps over the lazy dog 0123456789 !@#$%^&*()_+
+            </div>
         </div>
         <div class="above-below">
-            <div id="sample3" class="text-sample">The quick brown fox jumps over the lazy dog</div>
-            <div id="sample4" class="text-sample">The quick brown fox jumps over the lazy dog</div>
+            <div id="sample3" class="text-sample">The quick brown fox jumps over the lazy dog 0123456789 !@#$%^&*()_+
+            </div>
+            <div id="sample4" class="text-sample">The quick brown fox jumps over the lazy dog 0123456789 !@#$%^&*()_+
+            </div>
         </div>
         <div class="overlay">
-            <div id="sample5" class="text-sample">The quick brown fox jumps over the lazy dog</div>
-            <div id="sample6" class="text-sample">The quick brown fox jumps over the lazy dog</div>
+            <div id="sample5" class="text-sample">The quick brown fox jumps over the lazy dog 0123456789 !@#$%^&*()_+
+            </div>
+            <div id="sample6" class="text-sample">The quick brown fox jumps over the lazy dog 0123456789 !@#$%^&*()_+
+            </div>
         </div>
     </div>
 
@@ -117,6 +129,7 @@
 
         const font1Dropdown = document.getElementById('font1');
         const font2Dropdown = document.getElementById('font2');
+        const font3Dropdown = document.getElementById('font3');
 
         function fillDropdowns(data) {
             // 遍历 JSON 数据中的每个字体
@@ -126,9 +139,28 @@
                 option.value = font.fontName;
                 option.textContent = font.fontName;
 
-                // 将新元素添加到两个下拉列表中
-                font1Dropdown.appendChild(option);
-                font2Dropdown.appendChild(option.cloneNode(true));
+                const isMicrosoftFont = font.licenseInfo.some(info =>
+                    info.includes('Microsoft') ||
+                    info.includes('Font Bureau') ||
+                    info.includes('Bigelow & Holmes') ||
+                    info.includes('Monotype'));
+
+                const isFreeFont = font.licenseInfo.some(info =>
+                    info.includes('Open Font License') ||
+                    info.includes('OPEN FONT LICENSE') ||
+                    info.includes('Hagilda') ||
+                    info.includes('Ubuntu Font Licence') ||
+                    info.includes('Liberation Fonts license') ||
+                    info.includes('Apache License')
+                );
+
+                if (isMicrosoftFont) {
+                    font1Dropdown.appendChild(option);
+                } else if (isFreeFont) {
+                    font2Dropdown.appendChild(option);
+                } else {
+                    font3Dropdown.appendChild(option);
+                }
             });
         }
 
@@ -186,15 +218,18 @@
             console.timeEnd('initializeFontDimensions');
         }
 
-        function findClosestFonts(selectedFont) {
+        function findClosestFonts(selectedFont, searchDropdown) {
             const selectedDimensions = fontDimensions[selectedFont];
             const fontDifferences = [];
 
-            for (const [font, dimensions] of Object.entries(fontDimensions)) {
-                if (font === selectedFont) continue;
+            const searchOptions = Array.from(searchDropdown.options).map(option => option.value);
+
+            searchOptions.forEach(font => {
+                if (font === selectedFont) return;
+                const dimensions = fontDimensions[font];
                 const difference = Math.abs(dimensions.Width - selectedDimensions.Width) + Math.abs(dimensions.Height - selectedDimensions.Height);
                 fontDifferences.push({ font, difference, dimensions });
-            }
+            });
 
             fontDifferences.sort((a, b) => a.difference - b.difference);
             return fontDifferences.slice(0, 10); // Return the top 10 closest fonts
@@ -203,7 +238,7 @@
         function updateSuggestionMessage(fontDropdown, sampleElements, suggestionElement, otherDropdown) {
             var selectedFont = fontDropdown.value;
             var dimensions = fontDimensions[selectedFont];
-            var closestFonts = findClosestFonts(selectedFont);
+            var closestFonts = findClosestFonts(selectedFont, otherDropdown);
 
             var suggestionHTML = "You have selected the font <span class='highlight'>" + selectedFont + "</span> with a width of " + dimensions.Width + " and a height of " + dimensions.Height + ".";
             suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + selectedFont + "', 'copyright')\">Check Copyright</a>";
@@ -256,8 +291,6 @@
         font2Dropdown.addEventListener('change', () => {
             updateSuggestionMessage(font2Dropdown, [sample2, sample4, sample6], document.getElementById('suggestion-message2'), font1Dropdown);
         });
-
-        window.onload = initializeFontDimensions;
     </script>
 </body>
 
