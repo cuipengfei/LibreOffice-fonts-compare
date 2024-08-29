@@ -122,7 +122,25 @@
     <script>
         async function loadFonts() {
             const fonts = await window.queryLocalFonts();
-            const availableFonts = fontsInfo.filter(fInfo => fonts.some(font => font.fullName === fInfo.fontName));
+            const availableFonts = [];
+
+            for (const font of fonts) {
+                try {
+                    const blob = await font.blob();
+                    const arrayBuffer = await blob.arrayBuffer();
+                    const fontData = opentype.parse(arrayBuffer);
+                    const copyright = fontData.tables.name.copyright?.en || '';
+                    const license = fontData.tables.name.license?.en || '';
+                    const fontInfo = {
+                        fontName: font.fullName,
+                        licenseInfo: [copyright, license].filter(Boolean)
+                    };
+                    availableFonts.push(fontInfo);
+                } catch (error) {
+                    console.error(`无法加载字体 ${font.fullName}:`, error);
+                }
+            }
+
             fillDropdowns(availableFonts);
             initializeFontDimensions();
         }
@@ -176,13 +194,19 @@
 
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
+        const initialWidth = canvas.width;
+        const initialHeight = canvas.height;
+
+        console.log("初始画布宽度:", initialWidth, );
+        console.log("初始画布高度:", initialHeight);
+        console.log("设备像素比:", window.devicePixelRatio || 1);
 
         function calculateFontDimensions(fontName) {
             console.time("calculateFontDimensions " + fontName);
 
             const devicePixelRatio = window.devicePixelRatio || 1;
-            canvas.width = canvas.width * devicePixelRatio;
-            canvas.height = canvas.height * devicePixelRatio;
+            canvas.width = initialWidth * devicePixelRatio;
+            canvas.height = initialHeight * devicePixelRatio;
             context.scale(devicePixelRatio, devicePixelRatio);
 
             context.font = "24px " + fontName;
@@ -240,16 +264,14 @@
             var dimensions = fontDimensions[selectedFont];
             var closestFonts = findClosestFonts(selectedFont, otherDropdown);
 
-            var suggestionHTML = "You have selected the font <span class='highlight'>" + selectedFont + "</span> with a width of " + dimensions.Width + " and a height of " + dimensions.Height + ".";
+            var suggestionHTML = "You have selected the font <span class='highlight'>" + selectedFont + "</span>";
             suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + selectedFont + "', 'copyright')\">Check Copyright</a>";
-            suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + selectedFont + "', 'alternative')\">Check Free Alternative</a><br>";
             suggestionHTML += "The top 10 closest replacement fonts are:<br>";
 
             closestFonts.forEach(function (fontInfo, index) {
                 var fontName = fontInfo.font;
-                suggestionHTML += (index + 1) + ". <span class='highlight'>" + fontName + "</span> - Width: " + fontInfo.dimensions.Width + ", Height: " + fontInfo.dimensions.Height;
+                suggestionHTML += (index + 1) + ". <span class='highlight'>" + fontName + "</span>";
                 suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + fontName + "', 'copyright')\">Check Copyright</a>";
-                suggestionHTML += " <a href='#' class='link-margin' onclick=\"openGoogleSearchTabs('" + fontName + "', 'alternative')\">Check Free Alternative</a>";
                 suggestionHTML += " <button onclick=\"tryFont('" + fontName + "', '" + otherDropdown.id + "')\">Try it</button><br>";
             });
 
